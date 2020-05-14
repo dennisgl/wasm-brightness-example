@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WASM vs Canvas Image Processing Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.min.js"></script>
+  <style>
+    .dragover {
+      @apply border-blue-500 bg-blue-50/10;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-8 font-sans">
+  <div class="max-w-4xl mx-auto space-y-8">
+    
+    <header>
+      <h1 class="text-3xl font-bold mb-2">WebAssembly vs JS Image Processing</h1>
+      <p class="text-slate-400">Drag and drop a TIFF image or use the default one to compare performance.</p>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+      
+      <!-- Controls Panel -->
+      <div class="md:col-span-1 space-y-6 bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700 h-fit">
+        
+        <!-- Processing Mode -->
+        <fieldset class="space-y-3">
+          <legend class="font-semibold text-sm uppercase tracking-wider text-slate-400">Processing Mode</legend>
+          <div class="flex items-center space-x-3">
+            <input type="radio" id="mode-js" name="mode" value="js" class="w-4 h-4 text-blue-500 bg-slate-700 border-slate-600 focus:ring-blue-500 focus:ring-2">
+            <label for="mode-js" class="font-medium cursor-pointer">Vanilla JS</label>
+          </div>
+          <div class="flex items-center space-x-3">
+            <input type="radio" id="mode-wasm" name="mode" value="wasm" checked class="w-4 h-4 text-blue-500 bg-slate-700 border-slate-600 focus:ring-blue-500 focus:ring-2">
+            <label for="mode-wasm" class="font-medium cursor-pointer">WebAssembly</label>
+          </div>
+        </fieldset>
+
+        <!-- Brightness Slider -->
+        <div class="space-y-3">
+          <label for="brightness" class="block font-semibold text-sm uppercase tracking-wider text-slate-400">
+            Brightness Adjustment
+          </label>
+          <input type="range" id="brightness" min="-255" max="255" value="0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+          <div class="text-center font-mono text-sm" id="brightness-val">0</div>
+        </div>
+
+        <!-- Performance Stats -->
+        <div class="pt-4 border-t border-slate-700 space-y-1">
+          <div class="text-sm text-slate-400">Execution Time:</div>
+          <div class="text-2xl font-mono font-bold text-emerald-400" id="perf-time">-- ms</div>
+        </div>
+      </div>
+
+      <!-- Image Area -->
+      <div class="md:col-span-3 space-y-4">
+        <div id="dropzone" class="relative group border-2 border-dashed border-slate-700 rounded-xl overflow-hidden bg-slate-800/50 flex items-center justify-center min-h-[400px] transition-colors">
+          <div class="absolute inset-0 z-10 hidden items-center justify-center bg-slate-900/80 group-[.dragover]:flex pointer-events-none">
+            <p class="text-xl font-bold text-blue-400">Drop TIFF image here</p>
+          </div>
+          
+          <div id="loading" class="absolute flex flex-col items-center space-y-4">
+            <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-slate-400 font-medium tracking-wide">Processing Image...</p>
+          </div>
+
+          <!-- Canvas will be sized dynamically -->
+          <canvas id="canvas" class="hidden max-w-full max-h-[80vh] object-contain"></canvas>
+        </div>
+        <p class="text-center text-sm text-slate-500">Note: Large images (10MB+) will demonstrate a larger performance gap.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="brightness.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
