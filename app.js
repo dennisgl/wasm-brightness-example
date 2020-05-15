@@ -23,7 +23,7 @@ let processBrightnessWasm = null;
 if (typeof Module !== 'undefined') {
     Module.onRuntimeInitialized = () => {
         wasmReady = true;
-        processBrightnessWasm = Module.cwrap('processBrightness', null, ['number', 'number', 'number']);
+        processBrightnessWasm = Module.cwrap('processBrightness', null, ['number', 'number', 'number', 'number']);
         console.log("WASM Module Initialized");
     };
 } else {
@@ -53,8 +53,10 @@ function adjustBrightnessJS(originalData, intensity) {
     return new ImageData(pixels, originalData.width, originalData.height);
 }
 
-let cachedWasmPtr = null;
-let cachedWasmLength = 0;
+let wasmSrcPtr = null;
+let wasmDstPtr = null;
+let wasmPtrLength = 0;
+let lastOriginalData = null;
 
 function adjustBrightnessWasm(originalData, intensity) {
     if (!wasmReady) {
@@ -64,27 +66,35 @@ function adjustBrightnessWasm(originalData, intensity) {
 
     const length = originalData.data.length;
     
-    // 1. Avoid expensive malloc/free on every slider tick
-    if (cachedWasmLength !== length) {
-        if (cachedWasmPtr) Module._free(cachedWasmPtr);
-        cachedWasmPtr = Module._malloc(length);
-        cachedWasmLength = length;
+    // 1. Manage Wasm memory buffers
+    if (wasmPtrLength !== length) {
+        if (wasmSrcPtr) Module._free(wasmSrcPtr);
+        if (wasmDstPtr) Module._free(wasmDstPtr);
+        wasmSrcPtr = Module._malloc(length);
+        wasmDstPtr = Module._malloc(length);
+        wasmPtrLength = length;
+        lastOriginalData = null; // Force re-copy of source
     }
     
-    const heap = new Uint8Array(HEAPU8.buffer, cachedWasmPtr, length);
+    // 2. Copy source image to Wasm memory ONLY if it's a new image
+    // This removes one major copy from the hot-path (slider ticks)
+    if (lastOriginalData !== originalData) {
+        const srcHeap = new Uint8Array(HEAPU8.buffer, wasmSrcPtr, length);
+        // Use originalData.data directly as it is a Uint8ClampedArray
+        srcHeap.set(originalData.data);
+        lastOriginalData = originalData;
+    }
     
-    // 2. Copy directly from original source of truth
-    heap.set(new Uint8Array(originalData.data.buffer));
+    // 3. Run the SIMD C function: src -> dst
+    Module._processBrightness(wasmSrcPtr, wasmDstPtr, length, intensity);
     
-    // 3. Run the C function (bypass cwrap overhead)
-    Module._processBrightness(cachedWasmPtr, length, intensity);
-    
-    // 4. Copy out to a new array
-    const finalPixels = new Uint8ClampedArray(length);
-    finalPixels.set(heap);
-    
+    // 4. Zero-copy: Create ImageData view directly from Wasm heap
+    // By passing the Wasm-backed Uint8ClampedArray directly to ImageData,
+    // we avoid the second major copy.
+    const finalPixels = new Uint8ClampedArray(HEAPU8.buffer, wasmDstPtr, length);
     return new ImageData(finalPixels, originalData.width, originalData.height);
 }
+
 
 function applyBrightness() {
     if (!originalImageData) return;
